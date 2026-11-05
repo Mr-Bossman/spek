@@ -1,0 +1,44 @@
+name: macOS arm64
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup prerequisites
+        run: |
+          brew install autoconf automake libtool gettext pkg-config \
+            ffmpeg wxwidgets
+
+      - name: Setup aclocal macros
+        run: |
+          mkdir -p m4
+          find /opt/homebrew -name wxwin.m4 -exec cp {} m4/ \; -quit
+
+      - name: build and bundle
+        run: ./dist/osx/bundle.sh
+        env:
+          CPPFLAGS: "-I/opt/homebrew/include"
+          LDFLAGS: "-L/opt/homebrew/lib"
+
+      - name: check
+        run: make check
+
+      - name: make check
+        run: make distcheck
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spek-macos-arm64
+          path: |
+            src/spek
+            dist/osx/Spek.dmg
