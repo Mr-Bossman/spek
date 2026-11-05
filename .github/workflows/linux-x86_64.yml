@@ -1,0 +1,82 @@
+name: Linux x86_64
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake autopoint gettext intltool libtool pkg-config \
+            libavformat-dev libavcodec-dev libavutil-dev \
+            libwxgtk3.2-dev
+
+      - name: autogen
+        run: ./autogen.sh
+
+      - name: build
+        run: make -j$(nproc)
+
+      - name: check
+        run: make check
+
+      - name: distcheck
+        run: make distcheck
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spek-ubuntu-x86_64
+          path: src/spek
+
+  build-deb:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential debhelper dh-make fakeroot lintian \
+            autoconf automake autopoint gettext intltool libtool pkg-config \
+            libavformat-dev libavcodec-dev libavutil-dev \
+            libwxgtk3.2-dev wx-common
+
+      - name: Prepare debian directory
+        run: cp -a dist/debian .
+
+      # dpkg-buildpackage runs make check and distcheck automatically
+      - name: Build package
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Run lintian
+        run: lintian ../*.deb || true
+
+      - name: Copy artifacts
+        run: |
+          cp ../spek*.deb .
+          cp ../spek*.changes .
+          cp ../spek*.ddeb .
+          cp ../spek*.buildinfo .
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spek-ubuntu-x86_64-deb
+          path: |
+            spek*.deb
+            spek*.changes
+            spek*.ddeb
+            spek*.buildinfo
